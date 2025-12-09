@@ -12,8 +12,8 @@ dotenv.config();
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-// Fallback products
-const productsPath = path.join(__dirname, 'data', 'products.json');
+// ---------- FALLBACK PRODUCTS ----------
+const productsPath = path.join(__dirname, 'backend', 'data', 'products.json');
 let fallbackProducts = [];
 
 try {
@@ -33,16 +33,16 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
-// Serve local images
+// ---------- STATIC FILES ----------
 app.use('/img', express.static(path.join(__dirname, 'public', 'img')));
 
-// Serve built frontend
+// Serve frontend build
 app.use(express.static(path.join(__dirname, 'dist')));
 
-// API health
+// Health check
 app.get('/api/health', (req, res) => res.json({ ok: true }));
 
-// GET all products
+// ---------- GET ALL PRODUCTS ----------
 app.get('/api/products', async (req, res) => {
   try {
     const { data, error } = await supabase
@@ -62,7 +62,7 @@ app.get('/api/products', async (req, res) => {
   }
 });
 
-// GET single product
+// ---------- GET SINGLE PRODUCT ----------
 app.get('/api/products/:id', async (req, res) => {
   try {
     const { data, error } = await supabase
@@ -71,9 +71,7 @@ app.get('/api/products/:id', async (req, res) => {
       .eq('id', req.params.id)
       .single();
 
-    if (error || !data) {
-      return res.status(404).json({ error: 'Not found' });
-    }
+    if (error || !data) return res.status(404).json({ error: 'Not found' });
 
     res.json(data);
   } catch (e) {
@@ -81,11 +79,11 @@ app.get('/api/products/:id', async (req, res) => {
   }
 });
 
-// Checkout
+// ---------- CHECKOUT ----------
 app.post('/api/checkout', (req, res) => {
   const { items } = req.body;
 
-  if (!items || items.length === 0) {
+  if (!items || !items.length) {
     return res.status(400).json({ error: 'No items' });
   }
 
@@ -98,7 +96,7 @@ app.post('/api/checkout', (req, res) => {
   });
 });
 
-// Admin image upload
+// ---------- IMAGE UPLOAD ----------
 app.post('/api/admin/upload', upload.single('file'), async (req, res) => {
   try {
     if (!req.file) return res.status(400).json({ error: 'No file' });
@@ -131,11 +129,11 @@ app.post('/api/admin/upload', upload.single('file'), async (req, res) => {
   }
 });
 
-// SPA fallback
+// ---------- SPA FALLBACK ----------
 app.get('*', (req, res) => {
   res.sendFile(path.join(__dirname, 'dist', 'index.html'));
 });
 
-// 🔥 MOST IMPORTANT FIX FOR RENDER
+// ---------- START SERVER ----------
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => console.log("Backend listening on port", PORT));
