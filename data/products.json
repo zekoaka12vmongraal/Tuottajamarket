@@ -1,0 +1,20 @@
+[
+  {
+    "id": 1,
+    "name": "Jauheliha",
+    "price": 5.50,
+    "image": "https://cdn.midjourney.com/jauheliha.jpg"
+  },
+  {
+    "id": 2,
+    "name": "Perunat",
+    "price": 1.20,
+    "image": "https://cdn.midjourney.com/perunat.jpg"
+  },
+  {
+    "id": 3,
+    "name": "Omena",
+    "price": 0.90,
+    "image": "https://cdn.midjourney.com/omena.jpg"
+  }
+]
