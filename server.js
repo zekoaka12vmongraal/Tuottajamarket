@@ -129,8 +129,8 @@ app.post('/api/admin/upload', upload.single('file'), async (req, res) => {
   }
 });
 
-// ---------- SPA FALLBACK ----------
-app.get('*', (req, res) => {
+// SPA fallback (vain ei-API -reitit)
+app.get(/^\/(?!api).*/, (req, res) => {
   res.sendFile(path.join(__dirname, 'dist', 'index.html'));
 });
 
