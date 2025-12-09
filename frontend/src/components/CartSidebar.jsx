@@ -3,12 +3,9 @@ import { useCart } from "./CartContext";
 import { useLang } from "./LanguageContext";
 
 export default function CartSidebar() {
-
   const { items, removeItem, changeQty, cartOpen, setCartOpen, clearCart } = useCart();
+  const { t } = useLang();
 
-  const { t, lang, toggleLang } = useLang();
-
-  // 🔧 Näitä puuttui → lisätty!
   const [errors, setErrors] = useState({});
   const [loading, setLoading] = useState(false);
   const [orderSuccess, setOrderSuccess] = useState(null);
@@ -29,15 +26,18 @@ export default function CartSidebar() {
     iban: ""
   });
 
-  const total = items.reduce((s, i) => s + (Number(i.prize || i.price || 0) * (i.qty || 1)), 0);
+  const total = items.reduce(
+    (s, i) => s + (Number(i.prize || i.price || 0) * (i.qty || 1)),
+    0
+  );
 
-  // Basic validators
+  // VALIDATORIT
   const validators = {
     name: v => v && v.trim().length >= 2,
     address: v => v && v.trim().length >= 5,
     email: v => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v || ""),
     cardNumber: v => /^\d{13,19}$/.test((v || "").replace(/\s+/g, "")),
-    expiry: v => /^\d{2}\/\d{2}$/.test(v || ""), // MM/YY
+    expiry: v => /^\d{2}\/\d{2}$/.test(v || ""),
     cvc: v => /^\d{3,4}$/.test(v || ""),
     mobilepayNumber: v => /^\+?\d{6,15}$/.test(v || ""),
     paypalEmail: v => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v || ""),
@@ -56,7 +56,7 @@ export default function CartSidebar() {
     if (s === 3) {
       if (paymentMethod === "card") {
         if (!validators.cardNumber(form.cardNumber)) e.cardNumber = "Invalid card number";
-        if (!validators.expiry(form.expiry)) e.expiry = "Invalid expiry (MM/YY)";
+        if (!validators.expiry(form.expiry)) e.expiry = "Invalid expiry";
         if (!validators.cvc(form.cvc)) e.cvc = "Invalid CVC";
       } else if (paymentMethod === "mobilepay") {
         if (!validators.mobilepayNumber(form.mobilepayNumber)) e.mobilepayNumber = "Invalid MobilePay number";
@@ -74,15 +74,23 @@ export default function CartSidebar() {
 
   const confirmOrder = async () => {
     if (!validateStep(3)) return;
-    if (items.length === 0) {
-      alert("Ostoskori on tyhjä");
-      return;
-    }
+    if (items.length === 0) return alert("Ostoskori on tyhjä");
+
     setLoading(true);
+
     try {
       const payload = {
-        items: items.map(i => ({ id: i.id, name: i.name, price: Number(i.prize || i.price || 0), qty: i.qty })),
-        customer: { name: form.name, email: form.email, address: form.address },
+        items: items.map(i => ({
+          id: i.id,
+          name: i.name,
+          price: Number(i.prize || i.price || 0),
+          qty: i.qty
+        })),
+        customer: {
+          name: form.name,
+          email: form.email,
+          address: form.address
+        },
         payment: { method: paymentMethod }
       };
 
@@ -92,30 +100,28 @@ export default function CartSidebar() {
         body: JSON.stringify(payload)
       });
 
-      if (!res.ok) {
-        const txt = await res.text();
-        throw new Error(txt || "Server error");
-      }
+      if (!res.ok) throw new Error(await res.text());
 
       const data = await res.json();
+      setOrderSuccess({
+        orderId: data.orderId || "ORDER-" + Date.now(),
+        total: data.total || total
+      });
 
-      setOrderSuccess({ orderId: data.orderId || ("ORDER-" + Date.now()), total: data.total || total });
       clearCart();
       setCheckoutOpen(false);
       setStep(1);
 
-      setTimeout(() => {
-        setCartOpen(false);
-      }, 250);
+      setTimeout(() => setCartOpen(false), 250);
 
     } catch (err) {
-      console.error("Checkout error:", err);
-      alert("Tilaus epäonnistui: " + (err.message || err));
+      alert("Tilaus epäonnistui: " + err.message);
     } finally {
       setLoading(false);
     }
   };
 
+  // RESET
   const resetAll = () => {
     setCheckoutOpen(false);
     setStep(1);
@@ -136,7 +142,7 @@ export default function CartSidebar() {
 
   return (
     <>
-      {/* Overlay */}
+      {/* OVERLAY */}
       {cartOpen && (
         <div
           onClick={() => setCartOpen(false)}
@@ -149,7 +155,7 @@ export default function CartSidebar() {
         />
       )}
 
-      {/* Sidebar */}
+      {/* SIDEBAR */}
       <aside
         style={{
           position: "fixed",
@@ -164,50 +170,133 @@ export default function CartSidebar() {
           transition: "right .28s ease",
           overflowY: "auto",
           zIndex: 999,
-          color: "#111",
-          fontFamily: "Arial, Helvetica, sans-serif"
+          color: "#111"
         }}
       >
-        {/* Close */}
+        {/* HEADER */}
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-          <h2 style={{ margin: 0 }}>Ostoskori</h2>
-          <button
-            onClick={() => setCartOpen(false)}
-            style={{
-              background: "#eee", border: "1px solid #ccc", padding: "6px 10px", cursor: "pointer", borderRadius: "6px"
-            }}
-          >
-            Sulje
-          </button>
+          <h2>Ostoskori</h2>
+          <button onClick={() => setCartOpen(false)} style={closeBtn}>Sulje</button>
         </div>
 
         <div style={{ marginTop: 12 }}>
-
-          {/* Checkout flow */}
+          {/* CHECKOUT FLOW */}
           {checkoutOpen ? (
             <div>
-              {/* STEPS etc... (sisältö sama kuin aiemmin) */}
-              {/* —— ei poistettu mitään — */}
-              {/* —— vain lisätty puuttuvat state-muuttujat — */}
+              {/* STEPIT */}
+              {step === 1 && (
+                <div>
+                  <h3>Asiakastiedot</h3>
+
+                  <input style={input} placeholder="Nimi"
+                    value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
+                  {errors.name && <div style={err}>{errors.name}</div>}
+
+                  <input style={input} placeholder="Sähköposti"
+                    value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} />
+                  {errors.email && <div style={err}>{errors.email}</div>}
+
+                  <div style={{ display: "flex", gap: 10, marginTop: 12 }}>
+                    <button style={nextBtn} onClick={() => validateStep(1) && setStep(2)}>Jatka →</button>
+                    <button style={backBtn} onClick={() => setCheckoutOpen(false)}>Peruuta</button>
+                  </div>
+                </div>
+              )}
+
+              {step === 2 && (
+                <div>
+                  <h3>Toimitusosoite</h3>
+
+                  <input style={input} placeholder="Osoite"
+                    value={form.address} onChange={(e) => setForm({ ...form, address: e.target.value })} />
+                  {errors.address && <div style={err}>{errors.address}</div>}
+
+                  <div style={{ display: "flex", gap: 10, marginTop: 12 }}>
+                    <button style={backBtn} onClick={() => setStep(1)}>← Takaisin</button>
+                    <button style={nextBtn} onClick={() => validateStep(2) && setStep(3)}>Jatka →</button>
+                  </div>
+                </div>
+              )}
+
+              {step === 3 && (
+                <div>
+                  <h3>Maksutapa</h3>
+
+                  <select style={input}
+                    value={paymentMethod}
+                    onChange={(e) => setPaymentMethod(e.target.value)}
+                  >
+                    <option value="card">Kortti</option>
+                    <option value="mobilepay">MobilePay</option>
+                    <option value="paypal">PayPal</option>
+                    <option value="bank">Pankkisiirto</option>
+                  </select>
+
+                  {/* CARD */}
+                  {paymentMethod === "card" && (
+                    <>
+                      <input style={input} placeholder="Kortin numero"
+                        value={form.cardNumber} onChange={(e) => setForm({ ...form, cardNumber: e.target.value })} />
+                      <input style={input} placeholder="MM/YY"
+                        value={form.expiry} onChange={(e) => setForm({ ...form, expiry: e.target.value })} />
+                      <input style={input} placeholder="CVC"
+                        value={form.cvc} onChange={(e) => setForm({ ...form, cvc: e.target.value })} />
+                    </>
+                  )}
+
+                  {/* MOBILEPAY */}
+                  {paymentMethod === "mobilepay" && (
+                    <>
+                      <input style={input} placeholder="MobilePay-numero"
+                        value={form.mobilepayNumber} onChange={(e) => setForm({ ...form, mobilepayNumber: e.target.value })} />
+                    </>
+                  )}
+
+                  {/* PAYPAL */}
+                  {paymentMethod === "paypal" && (
+                    <>
+                      <input style={input} placeholder="PayPal-email"
+                        value={form.paypalEmail} onChange={(e) => setForm({ ...form, paypalEmail: e.target.value })} />
+                    </>
+                  )}
+
+                  {/* BANK */}
+                  {paymentMethod === "bank" && (
+                    <>
+                      <input style={input} placeholder="IBAN"
+                        value={form.iban} onChange={(e) => setForm({ ...form, iban: e.target.value })} />
+                    </>
+                  )}
+
+                  <div style={{ display: "flex", gap: 10, marginTop: 12 }}>
+                    <button style={backBtn} onClick={() => setStep(2)}>← Takaisin</button>
+                    <button style={confirmBtn} onClick={confirmOrder}>
+                      {loading ? "Lähetetään..." : "Vahvista tilaus"}
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
           ) : (
-            <div>
+            <>
+              {/* CART CONTENT */}
               {items.length === 0 && <p>Ostoskorisi on tyhjä</p>}
 
               {items.map(item => (
                 <div key={item.id} style={cartItem}>
-                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                    <div>
-                      <h4 style={{ margin: 0 }}>{item.name}</h4>
-                      <div style={{ color: "#666" }}>{(Number(item.prize || item.price || 0)).toFixed(2)} €</div>
-                    </div>
+                  <h4>{item.name}</h4>
+                  <div>{(Number(item.prize || item.price)).toFixed(2)} €</div>
 
-                    <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-                      <button style={qtyBtn} onClick={() => changeQty(item.id, (item.qty || 1) - 1)}>-</button>
-                      <div style={{ width: 28, textAlign: "center" }}>{item.qty}</div>
-                      <button style={qtyBtn} onClick={() => changeQty(item.id, (item.qty || 1) + 1)}>+</button>
-                      <button onClick={() => removeItem(item.id)} style={{ marginLeft: 10, color: "red", background: "none", border: "none", cursor: "pointer" }}>Poista</button>
-                    </div>
+                  <div style={{ display: "flex", gap: 8, marginTop: 6, alignItems: "center" }}>
+                    <button style={qtyBtn} onClick={() => changeQty(item.id, item.qty - 1)}>-</button>
+                    <div>{item.qty}</div>
+                    <button style={qtyBtn} onClick={() => changeQty(item.id, item.qty + 1)}>+</button>
+                    <button
+                      onClick={() => removeItem(item.id)}
+                      style={{ marginLeft: 10, color: "red", background: "none", border: "none", cursor: "pointer" }}
+                    >
+                      Poista
+                    </button>
                   </div>
                 </div>
               ))}
@@ -216,24 +305,29 @@ export default function CartSidebar() {
                 <>
                   <h3>Yhteensä: {total.toFixed(2)} €</h3>
                   <div style={{ display: "flex", gap: 8 }}>
-                    <button style={checkoutBtn} onClick={() => { setCheckoutOpen(true); setStep(1); }}>Siirry kassalle</button>
-                    <button style={backBtn} onClick={() => { clearCart(); setCartOpen(false); }}>Tyhjennä</button>
+                    <button style={checkoutBtn} onClick={() => { setCheckoutOpen(true); setStep(1); }}>
+                      Siirry kassalle
+                    </button>
+                    <button style={backBtn} onClick={() => { clearCart(); setCartOpen(false); }}>
+                      Tyhjennä
+                    </button>
                   </div>
                 </>
               )}
-            </div>
+            </>
           )}
 
-          {/* ORDER SUCCESS BOX */}
+          {/* SUCCESS BOX */}
           {orderSuccess && (
             <div style={{ marginTop: 18, padding: 12, background: "#e6ffed", borderRadius: 8 }}>
-              <h3 style={{ margin: 0, color: "green" }}>Tilaus vastaanotettu ✔</h3>
-              <p style={{ margin: "6px 0" }}>Tilausnumero: <strong>{orderSuccess.orderId}</strong></p>
-              <p style={{ margin: "6px 0" }}>Summa: <strong>{orderSuccess.total.toFixed(2)} €</strong></p>
-              <button style={nextBtn} onClick={() => { setOrderSuccess(null); resetAll(); }}>Sulje</button>
+              <h3 style={{ color: "green" }}>Tilaus vastaanotettu ✔</h3>
+              <p>Tilausnumero: <strong>{orderSuccess.orderId}</strong></p>
+              <p>Summa: <strong>{orderSuccess.total.toFixed(2)} €</strong></p>
+              <button style={nextBtn} onClick={() => { setOrderSuccess(null); resetAll(); }}>
+                Sulje
+              </button>
             </div>
           )}
-
         </div>
       </aside>
     </>
@@ -241,6 +335,13 @@ export default function CartSidebar() {
 }
 
 /* STYLES */
+const closeBtn = {
+  background: "#eee",
+  border: "1px solid #ccc",
+  padding: "6px 10px",
+  cursor: "pointer",
+  borderRadius: "6px"
+};
 
 const cartItem = {
   background: "#fafafa",
@@ -256,8 +357,7 @@ const input = {
   marginBottom: "8px",
   borderRadius: "6px",
   border: "1px solid #ddd",
-  fontSize: "15px",
-  background: "white"
+  fontSize: "15px"
 };
 
 const qtyBtn = {
@@ -312,4 +412,8 @@ const confirmBtn = {
   fontSize: "15px"
 };
 
-const err = { color: "crimson", fontSize: 13, marginBottom: 8 };
+const err = {
+  color: "crimson",
+  fontSize: 13,
+  marginBottom: 8
+};
