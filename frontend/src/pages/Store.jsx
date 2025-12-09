@@ -1,19 +1,21 @@
 import React, { useEffect, useState } from "react";
 import ProductCard from "../components/ProductCard";
 import { useCart } from "../components/CartContext";
+import { useLang } from "../components/LanguageContext";
 import CartSidebar from "../components/CartSidebar";
 
 export default function Store() {
-  const { addItem, setCartOpen, t, lang, setLang } = useCart();
+  const { addItem, setCartOpen } = useCart();
+  const { t, lang, toggleLang } = useLang();
+  
   const [products, setProducts] = useState([]);
   const [search, setSearch] = useState("");
   const [category, setCategory] = useState(0);
 
   // 🔥 OIKEA BACKEND-OSOITE RENDERISSÄ
-  const API_URL = import.meta.env.VITE_API_URL;
+  const API_URL = import.meta.env.VITE_API_URL || "";
 
-console.log("Backend URL =", API_URL);
-
+  console.log("Backend URL =", API_URL);
 
   // HAE TUOTTEET BACKENDILTÄ
   const loadProducts = async () => {
@@ -44,72 +46,80 @@ console.log("Backend URL =", API_URL);
   });
 
   return (
-    <div style={{ padding: "20px", color: "white" }}>
-      {/* LOGO + kielenvaihto + ostoskori */}
-      <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "20px" }}>
-        <h1 style={{ fontSize: "32px" }}>Tuottajamarket</h1>
-
-        <div style={{ display: "flex", gap: "10px" }}>
-          <button onClick={() => setLang(lang === "fi" ? "en" : "fi")}>
-            {lang === "fi" ? "EN" : "FI"}
-          </button>
-
-          <button
-            onClick={() => setCartOpen(true)}
-            style={{
-              padding: "10px 20px",
-              background: "green",
-              borderRadius: "8px",
-              cursor: "pointer"
-            }}
-          >
-            🛒 {t("Ostoskori", "Cart")}
-          </button>
-        </div>
-      </div>
-
+    <div style={{ padding: "20px", maxWidth: "1400px", margin: "0 auto" }}>
       {/* HAKU */}
-      <input
-        type="text"
-        placeholder={t("Hae tuotteita...", "Search products...")}
-        value={search}
-        onChange={(e) => setSearch(e.target.value)}
-        style={{
-          padding: "10px",
-          width: "300px",
-          borderRadius: "8px",
-          marginBottom: "20px",
-          color: "black"
-        }}
-      />
+      <div style={{ marginBottom: "20px" }}>
+        <input
+          type="text"
+          placeholder={t("Hae tuotteita...", "Search products...")}
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          style={{
+            padding: "12px",
+            width: "300px",
+            borderRadius: "8px",
+            border: "1px solid #ddd",
+            fontSize: "15px"
+          }}
+        />
 
-      {/* KATEGORIA */}
-      <select
-        value={category}
-        onChange={(e) => setCategory(Number(e.target.value))}
-        style={{ padding: "10px", marginLeft: "20px", borderRadius: "8px" }}
-      >
-        <option value={0}>{t("Kaikki kategoriat", "All categories")}</option>
-        <option value={1}>{t("Liha", "Meat")}</option>
-        <option value={2}>{t("Kala", "Fish")}</option>
-        <option value={3}>{t("Viljatuotteet", "Grains")}</option>
-        <option value={4}>{t("Marjat", "Berries")}</option>
-        <option value={5}>{t("Juustot", "Cheese")}</option>
-        <option value={6}>{t("Muut tuotteet", "Other products")}</option>
-      </select>
+        {/* KATEGORIA */}
+        <select
+          value={category}
+          onChange={(e) => setCategory(Number(e.target.value))}
+          style={{ 
+            padding: "12px", 
+            marginLeft: "15px", 
+            borderRadius: "8px",
+            border: "1px solid #ddd",
+            fontSize: "15px"
+          }}
+        >
+          <option value={0}>{t("Kaikki kategoriat", "All categories")}</option>
+          <option value={1}>{t("Liha", "Meat")}</option>
+          <option value={2}>{t("Kala", "Fish")}</option>
+          <option value={3}>{t("Viljatuotteet", "Grains")}</option>
+          <option value={4}>{t("Marjat", "Berries")}</option>
+          <option value={5}>{t("Juustot", "Cheese")}</option>
+          <option value={6}>{t("Muut tuotteet", "Other products")}</option>
+        </select>
+
+        <button
+          onClick={() => setCartOpen(true)}
+          style={{
+            padding: "12px 24px",
+            background: "#00a300",
+            color: "white",
+            border: "none",
+            borderRadius: "8px",
+            cursor: "pointer",
+            marginLeft: "15px",
+            fontSize: "15px",
+            fontWeight: "600"
+          }}
+        >
+          🛒 {t("Ostoskori", "Cart")}
+        </button>
+      </div>
 
       {/* TUOTTEET */}
       <div
         style={{
           display: "grid",
-          gridTemplateColumns: "repeat(auto-fill, minmax(300px, 1fr))",
+          gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))",
           gap: "20px",
           marginTop: "30px",
         }}
       >
-        {filteredProducts.map((p) => (
-          <ProductCard key={p.id} p={p} onAdd={() => addItem(p)} />
-        ))}
+        {filteredProducts.length === 0 ? (
+          <p style={{ gridColumn: "1 / -1", textAlign: "center", fontSize: "18px", color: "#666" }}>
+            {t("Ei tuotteita", "No products found")}
+          </p>
+        ) : (
+          filteredProducts.map((p) => (
+            <ProductCard key={p.id} p={p} onAdd={() => addItem(p)} />
+          ))
+        )}
       </div>
 
       <CartSidebar />

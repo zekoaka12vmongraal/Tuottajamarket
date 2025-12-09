@@ -129,26 +129,26 @@ export default function CartSidebar() {
     const e = {};
 
     if (s === 1) {
-      if (!validators.name(form.name)) e.name = "Invalid name";
-      if (!validators.email(form.email)) e.email = "Invalid email";
+      if (!validators.name(form.name)) e.name = "Virheellinen nimi";
+      if (!validators.email(form.email)) e.email = "Virheellinen sähköposti";
     }
     if (s === 2) {
-      if (!validators.address(form.address)) e.address = "Invalid address";
+      if (!validators.address(form.address)) e.address = "Virheellinen osoite";
     }
     if (s === 3) {
       if (paymentMethod === "card") {
-        if (!validators.cardNumber(form.cardNumber)) e.cardNumber = "Invalid card number";
-        if (!validators.expiry(form.expiry)) e.expiry = "Invalid expiry (MM/YY)";
-        if (!validators.cvc(form.cvc)) e.cvc = "Invalid CVC";
+        if (!validators.cardNumber(form.cardNumber)) e.cardNumber = "Virheellinen korttinumero";
+        if (!validators.expiry(form.expiry)) e.expiry = "Virheellinen voimassaolo (KK/VV)";
+        if (!validators.cvc(form.cvc)) e.cvc = "Virheellinen CVC";
       }
       if (paymentMethod === "mobilepay") {
-        if (!validators.mobilepayNumber(form.mobilepayNumber)) e.mobilepayNumber = "Invalid MobilePay number";
+        if (!validators.mobilepayNumber(form.mobilepayNumber)) e.mobilepayNumber = "Virheellinen MobilePay-numero";
       }
       if (paymentMethod === "paypal") {
-        if (!validators.paypalEmail(form.paypalEmail)) e.paypalEmail = "Invalid PayPal email";
+        if (!validators.paypalEmail(form.paypalEmail)) e.paypalEmail = "Virheellinen PayPal-sähköposti";
       }
       if (paymentMethod === "bank") {
-        if (!validators.iban(form.iban)) e.iban = "Invalid IBAN";
+        if (!validators.iban(form.iban)) e.iban = "Virheellinen IBAN";
       }
     }
 
@@ -329,7 +329,7 @@ export default function CartSidebar() {
                       <input style={input} placeholder="Kortin numero" value={form.cardNumber} onChange={(e) => setForm({ ...form, cardNumber: e.target.value })} />
                       {errors.cardNumber && <div style={err}>{errors.cardNumber}</div>}
 
-                      <input style={input} placeholder="MM/YY" value={form.expiry} onChange={(e) => setForm({ ...form, expiry: e.target.value })} />
+                      <input style={input} placeholder="KK/VV" value={form.expiry} onChange={(e) => setForm({ ...form, expiry: e.target.value })} />
                       {errors.expiry && <div style={err}>{errors.expiry}</div>}
 
                       <input style={input} placeholder="CVC" value={form.cvc} onChange={(e) => setForm({ ...form, cvc: e.target.value })} />
@@ -346,7 +346,7 @@ export default function CartSidebar() {
 
                   {paymentMethod === "paypal" && (
                     <>
-                      <input style={input} placeholder="PayPal-email" value={form.paypalEmail} onChange={(e) => setForm({ ...form, paypalEmail: e.target.value })} />
+                      <input style={input} placeholder="PayPal-sähköposti" value={form.paypalEmail} onChange={(e) => setForm({ ...form, paypalEmail: e.target.value })} />
                       {errors.paypalEmail && <div style={err}>{errors.paypalEmail}</div>}
                     </>
                   )}
