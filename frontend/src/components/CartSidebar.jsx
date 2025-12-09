@@ -9,7 +9,8 @@ const cartItem = {
   padding: "12px",
   borderRadius: "10px",
   marginBottom: "12px",
-  border: "1px solid #eee"
+  border: "1px solid #eee",
+  color: "#333"
 };
 
 const input = {
@@ -19,7 +20,8 @@ const input = {
   borderRadius: "6px",
   border: "1px solid #ddd",
   fontSize: "15px",
-  background: "white"
+  background: "white",
+  color: "#333"
 };
 
 const qtyBtn = {
@@ -264,10 +266,10 @@ export default function CartSidebar() {
       >
         {/* Close */}
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-          <h2 style={{ margin: 0 }}>Ostoskori</h2>
+          <h2 style={{ margin: 0, color: "#333" }}>Ostoskori</h2>
           <button
             onClick={() => setCartOpen(false)}
-            style={{ background: "#eee", border: "1px solid #ccc", padding: "6px 10px", cursor: "pointer", borderRadius: "6px" }}
+            style={{ background: "#eee", border: "1px solid #ccc", padding: "6px 10px", cursor: "pointer", borderRadius: "6px", color: "#333" }}
           >
             Sulje
           </button>
@@ -282,7 +284,7 @@ export default function CartSidebar() {
               {/* STEP 1 */}
               {step === 1 && (
                 <div>
-                  <h3>Asiakastiedot</h3>
+                  <h3 style={{ color: "#333" }}>Asiakastiedot</h3>
 
                   <input style={input} placeholder="Nimi" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
                   {errors.name && <div style={err}>{errors.name}</div>}
@@ -300,7 +302,7 @@ export default function CartSidebar() {
               {/* STEP 2 */}
               {step === 2 && (
                 <div>
-                  <h3>Toimitusosoite</h3>
+                  <h3 style={{ color: "#333" }}>Toimitusosoite</h3>
 
                   <input style={input} placeholder="Osoite" value={form.address} onChange={(e) => setForm({ ...form, address: e.target.value })} />
                   {errors.address && <div style={err}>{errors.address}</div>}
@@ -315,7 +317,7 @@ export default function CartSidebar() {
               {/* STEP 3 */}
               {step === 3 && (
                 <div>
-                  <h3>Maksutapa</h3>
+                  <h3 style={{ color: "#333" }}>Maksutapa</h3>
 
                   <select style={{ ...input }} value={paymentMethod} onChange={(e) => setPaymentMethod(e.target.value)}>
                     <option value="card">Kortti</option>
@@ -370,7 +372,7 @@ export default function CartSidebar() {
 
             /* -------- OSTOSKORI VIEW -------- */
             <div>
-              {items.length === 0 && <p>Ostoskorisi on tyhjä</p>}
+              {items.length === 0 && <p style={{ color: "#666" }}>Ostoskorisi on tyhjä</p>}
 
               {items.map(item => (
                 <div key={item.id} style={cartItem}>
@@ -398,7 +400,7 @@ export default function CartSidebar() {
 
               {items.length > 0 && (
                 <>
-                  <h3>Yhteensä: {total.toFixed(2)} €</h3>
+                  <h3 style={{ color: "#333" }}>Yhteensä: {total.toFixed(2)} €</h3>
 
                   <div style={{ display: "flex", gap: 8 }}>
                     <button style={checkoutBtn} onClick={() => { setCheckoutOpen(true); setStep(1); }}>Siirry kassalle</button>
