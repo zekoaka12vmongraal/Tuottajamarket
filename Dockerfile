@@ -1,4 +1,23 @@
+# --- Build stage (frontend) ---
+FROM node:20 AS builder
 
+WORKDIR /app
+
+# Kopioi frontendin package.json
+COPY frontend/package*.json ./frontend/
+
+# Asenna frontendin riippuvuudet
+WORKDIR /app/frontend
+RUN npm install
+
+# Kopioi frontend-koodi
+COPY frontend/ /app/frontend/
+
+# Rakenna frontend
+RUN npm run build
+
+
+# --- Runtime stage (backend) ---
 FROM node:20
 
 WORKDIR /app
@@ -9,14 +28,11 @@ COPY package*.json ./
 # Asenna backendin riippuvuudet
 RUN npm install
 
-# Kopioi koko projektin
+# Kopioi backend-koodi
 COPY . .
 
-# Rakenna frontend
-RUN cd frontend && npm install && npm run build
-
-# Kopioi frontendin build backendin dist-kansioon
-RUN mkdir -p dist && cp -r frontend/dist/* dist/
+# Kopioi FRONTENDIN valmiiksi rakennettu versio dist-kansioon
+COPY --from=builder /app/frontend/dist ./dist
 
 EXPOSE 3000
 
