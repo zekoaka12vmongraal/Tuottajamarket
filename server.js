@@ -5,7 +5,7 @@ import fs from 'fs';
 import multer from 'multer';
 import { fileURLToPath } from 'url';
 import dotenv from 'dotenv';
-import { supabase } from './backend/services/supabase.js';
+import { supabase } from './services/supabase.js';
 
 dotenv.config();
 
