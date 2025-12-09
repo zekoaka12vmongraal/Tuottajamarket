@@ -2,11 +2,17 @@ import React, { useState } from "react";
 import { useCart } from "./CartContext";
 
 export default function CartSidebar() {
-  const { items, removeItem, changeQty, cartOpen, setCartOpen, t, lang, setLang } = useCart();
+  const {
+    items, removeItem, changeQty, clearCart,
+    cartOpen, setCartOpen
+  } = useCart();
 
   const [checkoutOpen, setCheckoutOpen] = useState(false);
   const [step, setStep] = useState(1);
   const [paymentMethod, setPaymentMethod] = useState("card");
+  const [loading, setLoading] = useState(false);
+  const [orderSuccess, setOrderSuccess] = useState(null); // {orderId, total}
+  const [errors, setErrors] = useState({});
 
   const [form, setForm] = useState({
     name: "",
@@ -20,321 +26,408 @@ export default function CartSidebar() {
     iban: ""
   });
 
-  const total = items.reduce((s, i) => s + i.prize * i.qty, 0);
+  const total = items.reduce((s, i) => s + (Number(i.prize || i.price || 0) * (i.qty || 1)), 0);
 
-  const label = {
-    cart: t("Ostoskori", "Shopping Cart"),
-    empty: t("Ostoskorisi on tyhjä", "Your cart is empty"),
-    total: t("Yhteensä", "Total"),
-    checkout: t("Siirry kassalle", "Checkout"),
-    remove: t("Poista", "Remove"),
-    orderInfo: t("Tilaustiedot", "Checkout Information"),
-    customerInfo: t("Asiakastiedot", "Customer Information"),
-    addressInfo: t("Toimitusosoite", "Shipping Address"),
-    paymentInfo: t("Maksutiedot", "Payment Details"),
-    summary: t("Yhteenveto", "Summary"),
-    next: t("Seuraava", "Next"),
-    back: t("Takaisin", "Back"),
-    confirm: t("Vahvista tilaus", "Confirm Order"),
-    name: t("Nimi", "Name"),
-    address: t("Osoite", "Address"),
-    email: t("Sähköposti", "Email"),
-    card: t("Kortti", "Card"),
-    mobilepay: "MobilePay",
-    paypal: "PayPal",
-    klarna: "Klarna",
-    bank: t("Tilisiirto", "Bank Transfer"),
-    cardNumber: t("Kortin numero", "Card Number"),
-    expiry: t("Voimassaoloaika", "Expiry Date"),
-    cvc: t("CVC-koodi", "CVC"),
-    mobilepayNumber: "MobilePay numero",
-    paypalEmail: "PayPal Email",
-    iban: "IBAN"
+  // Basic validators
+  const validators = {
+    name: v => v && v.trim().length >= 2,
+    address: v => v && v.trim().length >= 5,
+    email: v => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v || ""),
+    cardNumber: v => /^\d{13,19}$/.test((v || "").replace(/\s+/g, "")),
+    expiry: v => /^\d{2}\/\d{2}$/.test(v || ""), // MM/YY
+    cvc: v => /^\d{3,4}$/.test(v || ""),
+    mobilepayNumber: v => /^\+?\d{6,15}$/.test(v || ""),
+    paypalEmail: v => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v || ""),
+    iban: v => /^[A-Z]{2}[0-9A-Z]{13,30}$/.test((v||"").replace(/\s+/g, "").toUpperCase())
+  };
+
+  const validateStep = (s) => {
+    const e = {};
+    if (s === 1) {
+      if (!validators.name(form.name)) e.name = "Invalid name";
+      if (!validators.email(form.email)) e.email = "Invalid email";
+    }
+    if (s === 2) {
+      if (!validators.address(form.address)) e.address = "Invalid address";
+    }
+    if (s === 3) {
+      if (paymentMethod === "card") {
+        if (!validators.cardNumber(form.cardNumber)) e.cardNumber = "Invalid card number";
+        if (!validators.expiry(form.expiry)) e.expiry = "Invalid expiry (MM/YY)";
+        if (!validators.cvc(form.cvc)) e.cvc = "Invalid CVC";
+      } else if (paymentMethod === "mobilepay") {
+        if (!validators.mobilepayNumber(form.mobilepayNumber)) e.mobilepayNumber = "Invalid MobilePay number";
+      } else if (paymentMethod === "paypal") {
+        if (!validators.paypalEmail(form.paypalEmail)) e.paypalEmail = "Invalid PayPal email";
+      } else if (paymentMethod === "bank") {
+        if (!validators.iban(form.iban)) e.iban = "Invalid IBAN";
+      }
+    }
+    setErrors(e);
+    return Object.keys(e).length === 0;
+  };
+
+  const apiUrl = import.meta.env.VITE_API_URL || "";
+
+  const confirmOrder = async () => {
+    if (!validateStep(3)) return;
+    if (items.length === 0) {
+      alert("Ostoskori on tyhjä");
+      return;
+    }
+    setLoading(true);
+    try {
+      const payload = {
+        items: items.map(i => ({ id: i.id, name: i.name, price: Number(i.prize || i.price || 0), qty: i.qty })),
+        customer: { name: form.name, email: form.email, address: form.address },
+        payment: { method: paymentMethod }
+      };
+
+      const res = await fetch(`${apiUrl}/api/checkout`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload)
+      });
+
+      if (!res.ok) {
+        const txt = await res.text();
+        throw new Error(txt || "Server error");
+      }
+
+      const data = await res.json();
+
+      setOrderSuccess({ orderId: data.orderId || ("ORDER-" + Date.now()), total: data.total || total });
+      clearCart();
+      setCheckoutOpen(false);
+      setStep(1);
+
+      // Sulje ostoskorin ja näytä vahvistus
+      setTimeout(() => {
+        setCartOpen(false);
+      }, 250);
+
+    } catch (err) {
+      console.error("Checkout error:", err);
+      alert("Tilaus epäonnistui: " + (err.message || err));
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const resetAll = () => {
+    setCheckoutOpen(false);
+    setStep(1);
+    setForm({
+      name: "",
+      address: "",
+      email: "",
+      cardNumber: "",
+      expiry: "",
+      cvc: "",
+      mobilepayNumber: "",
+      paypalEmail: "",
+      iban: ""
+    });
+    setErrors({});
+    setPaymentMethod("card");
   };
 
   return (
-    <div
-      style={{
-        position: "fixed",
-        top: 0,
-        right: cartOpen ? 0 : "-450px",
-        width: "450px",
-        height: "100vh",
-        background: "#ffffff",
-        boxShadow: "0 0 20px rgba(0,0,0,0.4)",
-        padding: "25px",
-        transition: ".35s ease",
-        overflowY: "auto",
-        zIndex: 999,
-        color: "#111",
-        fontFamily: "Arial",
-      }}
-    >
-      {/* Close */}
-      <button
-        onClick={() => {
-          setCheckoutOpen(false);
-          setStep(1);
-          setCartOpen(false);
-        }}
+    <>
+      {/* Overlay */}
+      {cartOpen && (
+        <div
+          onClick={() => setCartOpen(false)}
+          style={{
+            position: "fixed",
+            inset: 0,
+            background: "rgba(0,0,0,0.4)",
+            zIndex: 998
+          }}
+        />
+      )}
+
+      {/* Sidebar */}
+      <aside
         style={{
-          float: "right",
-          background: "#eee",
-          border: "1px solid #aaa",
-          padding: "5px 10px",
-          cursor: "pointer",
-          borderRadius: "6px",
-          fontWeight: "bold"
+          position: "fixed",
+          top: 0,
+          right: cartOpen ? 0 : "-500px",
+          width: "450px",
+          maxWidth: "95vw",
+          height: "100vh",
+          background: "#fff",
+          boxShadow: "0 0 30px rgba(0,0,0,0.35)",
+          padding: "22px",
+          transition: "right .28s ease",
+          overflowY: "auto",
+          zIndex: 999,
+          color: "#111",
+          fontFamily: "Arial, Helvetica, sans-serif"
         }}
       >
-        X
-      </button>
+        {/* Close */}
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+          <h2 style={{ margin: 0 }}>Ostoskori</h2>
+          <div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
+            <button
+              onClick={() => setCartOpen(false)}
+              style={{
+                background: "#eee", border: "1px solid #ccc", padding: "6px 10px", cursor: "pointer", borderRadius: "6px"
+              }}
+            >
+              Sulje
+            </button>
+          </div>
+        </div>
 
-      {/* Language toggle */}
-      <button
-        onClick={() => setLang(lang === "fi" ? "en" : "fi")}
-        style={{
-          background: "#ddd",
-          border: "1px solid #aaa",
-          padding: "6px 10px",
-          borderRadius: "8px",
-          cursor: "pointer",
-          marginBottom: "20px"
-        }}
-      >
-        {lang === "fi" ? "English" : "Suomi"}
-      </button>
+        <div style={{ marginTop: 12 }}>
 
-      <h2 style={{ marginTop: 0 }}>{label.cart}</h2>
+          {/* Checkout flow */}
+          {checkoutOpen ? (
+            <div>
+              <h3>Tilaus</h3>
 
-      {/* CHECKOUT */}
-      {checkoutOpen ? (
-        <div style={{ marginTop: "15px" }}>
-          <h3>{label.orderInfo}</h3>
-
-          {/* STEP 1 */}
-          {step === 1 && (
-            <>
-              <h4>{label.customerInfo}</h4>
-
-              <input style={input} placeholder={label.name}
-                value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} />
-              <input style={input} placeholder={label.email}
-                value={form.email} onChange={e => setForm({ ...form, email: e.target.value })} />
-
-              <button style={nextBtn} onClick={() => setStep(2)}>{label.next}</button>
-            </>
-          )}
-
-          {/* STEP 2 */}
-          {step === 2 && (
-            <>
-              <h4>{label.addressInfo}</h4>
-
-              <input style={input} placeholder={label.address}
-                value={form.address} onChange={e => setForm({ ...form, address: e.target.value })} />
-
-              <button style={backBtn} onClick={() => setStep(1)}>{label.back}</button>
-              <button style={nextBtn} onClick={() => setStep(3)}>{label.next}</button>
-            </>
-          )}
-
-          {/* STEP 3 */}
-          {step === 3 && (
-            <>
-              <h4>{label.paymentInfo}</h4>
-
-              <select
-                style={input}
-                value={paymentMethod}
-                onChange={(e) => setPaymentMethod(e.target.value)}
-              >
-                <option value="card">{label.card}</option>
-                <option value="mobilepay">{label.mobilepay}</option>
-                <option value="paypal">{label.paypal}</option>
-                <option value="klarna">{label.klarna}</option>
-                <option value="bank">{label.bank}</option>
-              </select>
-
-              {paymentMethod === "card" && (
+              {/* STEP 1 */}
+              {step === 1 && (
                 <>
-                  <input style={input} placeholder={label.cardNumber}
-                    value={form.cardNumber}
-                    onChange={e => setForm({ ...form, cardNumber: e.target.value })} />
+                  <label>Nimi</label>
+                  <input style={input} value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} />
+                  {errors.name && <div style={err}>{errors.name}</div>}
 
-                  <input style={input} placeholder={label.expiry}
-                    value={form.expiry}
-                    onChange={e => setForm({ ...form, expiry: e.target.value })} />
+                  <label>Sähköposti</label>
+                  <input style={input} value={form.email} onChange={e => setForm({ ...form, email: e.target.value })} />
+                  {errors.email && <div style={err}>{errors.email}</div>}
 
-                  <input style={input} placeholder={label.cvc}
-                    value={form.cvc}
-                    onChange={e => setForm({ ...form, cvc: e.target.value })} />
+                  <div style={{ display: "flex", gap: 8 }}>
+                    <button style={backBtn} onClick={() => { setCheckoutOpen(false); setStep(1); }}>Peruuta</button>
+                    <button style={nextBtn} onClick={() => { if (validateStep(1)) setStep(2); }}>{loading ? "..." : "Seuraava"}</button>
+                  </div>
                 </>
               )}
 
-              {paymentMethod === "mobilepay" && (
-                <input style={input} placeholder={label.mobilepayNumber}
-                  value={form.mobilepayNumber}
-                  onChange={e => setForm({ ...form, mobilepayNumber: e.target.value })} />
+              {/* STEP 2 */}
+              {step === 2 && (
+                <>
+                  <label>Osoite</label>
+                  <input style={input} value={form.address} onChange={e => setForm({ ...form, address: e.target.value })} />
+                  {errors.address && <div style={err}>{errors.address}</div>}
+
+                  <div style={{ display: "flex", gap: 8 }}>
+                    <button style={backBtn} onClick={() => setStep(1)}>Takaisin</button>
+                    <button style={nextBtn} onClick={() => { if (validateStep(2)) setStep(3); }}>Seuraava</button>
+                  </div>
+                </>
               )}
 
-              {paymentMethod === "paypal" && (
-                <input style={input} placeholder={label.paypalEmail}
-                  value={form.paypalEmail}
-                  onChange={e => setForm({ ...form, paypalEmail: e.target.value })} />
-              )}
+              {/* STEP 3 */}
+              {step === 3 && (
+                <>
+                  <label>Maksutapa</label>
+                  <select style={input} value={paymentMethod} onChange={e => setPaymentMethod(e.target.value)}>
+                    <option value="card">Kortti</option>
+                    <option value="mobilepay">MobilePay</option>
+                    <option value="paypal">PayPal</option>
+                    <option value="klarna">Klarna</option>
+                    <option value="bank">Tilisiirto</option>
+                  </select>
 
-              {paymentMethod === "klarna" && (
-                <p style={{ padding: "5px", color: "#333" }}>
-                  {t(
-                    "Sinut ohjataan Klarnaan tilauksen jälkeen.",
-                    "You will be redirected to Klarna after confirming."
+                  {paymentMethod === "card" && (
+                    <>
+                      <label>Kortin numero</label>
+                      <input style={input} placeholder="1234123412341234" value={form.cardNumber}
+                        onChange={e => setForm({ ...form, cardNumber: e.target.value.replace(/\s+/g, "") })} />
+                      {errors.cardNumber && <div style={err}>{errors.cardNumber}</div>}
+
+                      <label>Voimassa (MM/YY)</label>
+                      <input style={input} placeholder="06/26" value={form.expiry}
+                        onChange={e => setForm({ ...form, expiry: e.target.value })} />
+                      {errors.expiry && <div style={err}>{errors.expiry}</div>}
+
+                      <label>CVC</label>
+                      <input style={input} placeholder="123" value={form.cvc}
+                        onChange={e => setForm({ ...form, cvc: e.target.value })} />
+                      {errors.cvc && <div style={err}>{errors.cvc}</div>}
+                    </>
                   )}
-                </p>
+
+                  {paymentMethod === "mobilepay" && (
+                    <>
+                      <label>MobilePay numero</label>
+                      <input style={input} placeholder="+358..." value={form.mobilepayNumber}
+                        onChange={e => setForm({ ...form, mobilepayNumber: e.target.value })} />
+                      {errors.mobilepayNumber && <div style={err}>{errors.mobilepayNumber}</div>}
+                    </>
+                  )}
+
+                  {paymentMethod === "paypal" && (
+                    <>
+                      <label>PayPal sähköposti</label>
+                      <input style={input} value={form.paypalEmail}
+                        onChange={e => setForm({ ...form, paypalEmail: e.target.value })} />
+                      {errors.paypalEmail && <div style={err}>{errors.paypalEmail}</div>}
+                    </>
+                  )}
+
+                  {paymentMethod === "bank" && (
+                    <>
+                      <label>IBAN</label>
+                      <input style={input} value={form.iban}
+                        onChange={e => setForm({ ...form, iban: e.target.value })} />
+                      {errors.iban && <div style={err}>{errors.iban}</div>}
+                    </>
+                  )}
+
+                  <div style={{ display: "flex", gap: 8 }}>
+                    <button style={backBtn} onClick={() => setStep(2)}>Takaisin</button>
+                    <button style={nextBtn} onClick={() => { if (validateStep(3)) setStep(4); }}>Seuraava</button>
+                  </div>
+                </>
               )}
 
-              {paymentMethod === "bank" && (
-                <input style={input} placeholder={label.iban}
-                  value={form.iban}
-                  onChange={e => setForm({ ...form, iban: e.target.value })} />
+              {/* STEP 4 - SUMMARY */}
+              {step === 4 && (
+                <>
+                  <h4>Yhteenveto</h4>
+                  {items.map(i => (
+                    <div key={i.id} style={{ marginBottom: 8 }}>
+                      <strong>{i.name}</strong> × {i.qty} — {(Number(i.prize || i.price || 0) * i.qty).toFixed(2)} €
+                    </div>
+                  ))}
+                  <h3>Yhteensä: {total.toFixed(2)} €</h3>
+
+                  <div style={{ display: "flex", gap: 8 }}>
+                    <button style={backBtn} onClick={() => setStep(3)}>Takaisin</button>
+                    <button style={confirmBtn} onClick={confirmOrder} disabled={loading}>
+                      {loading ? "Käsittely..." : "Vahvista tilaus"}
+                    </button>
+                  </div>
+                </>
               )}
+            </div>
+          ) : (
+            // Cart view
+            <div>
+              {items.length === 0 && <p>Ostoskorisi on tyhjä</p>}
 
-              <button style={backBtn} onClick={() => setStep(2)}>{label.back}</button>
-              <button style={nextBtn} onClick={() => setStep(4)}>{label.next}</button>
-            </>
-          )}
+              {items.map(item => (
+                <div key={item.id} style={cartItem}>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                    <div>
+                      <h4 style={{ margin: 0 }}>{item.name}</h4>
+                      <div style={{ color: "#666" }}>{(Number(item.prize || item.price || 0)).toFixed(2)} €</div>
+                    </div>
 
-          {/* STEP 4 */}
-          {step === 4 && (
-            <>
-              <h4>{label.summary}</h4>
-
-              {items.map(i => (
-                <p key={i.id}>{i.name} × {i.qty} — {(i.prize * i.qty).toFixed(2)} €</p>
+                    <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                      <button style={qtyBtn} onClick={() => changeQty(item.id, (item.qty || 1) - 1)}>-</button>
+                      <div style={{ width: 28, textAlign: "center" }}>{item.qty}</div>
+                      <button style={qtyBtn} onClick={() => changeQty(item.id, (item.qty || 1) + 1)}>+</button>
+                      <button onClick={() => removeItem(item.id)} style={{ marginLeft: 10, color: "red", background: "none", border: "none", cursor: "pointer" }}>Poista</button>
+                    </div>
+                  </div>
+                </div>
               ))}
 
-              <h3>{label.total}: {total.toFixed(2)} €</h3>
-
-              <button style={backBtn} onClick={() => setStep(3)}>{label.back}</button>
-              <button style={confirmBtn}>{label.confirm}</button>
-            </>
+              {items.length > 0 && (
+                <>
+                  <h3>Yhteensä: {total.toFixed(2)} €</h3>
+                  <div style={{ display: "flex", gap: 8 }}>
+                    <button style={checkoutBtn} onClick={() => { setCheckoutOpen(true); setStep(1); }}>Siirry kassalle</button>
+                    <button style={backBtn} onClick={() => { clearCart(); setCartOpen(false); }}>Tyhjennä</button>
+                  </div>
+                </>
+              )}
+            </div>
           )}
-        </div>
-      ) : (
-        <>
-          {/* CART */}
 
-          {items.length === 0 && <p>{label.empty}</p>}
-
-          {items.map((item) => (
-            <div key={item.id} style={cartItem}>
-              <h4 style={{ margin: 0 }}>{item.name}</h4>
-              <p style={{ margin: "4px 0" }}>{item.prize} €</p>
-
-              <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
-                <button onClick={() => changeQty(item.id, item.qty - 1)} style={qtyBtn}>-</button>
-                <span style={{ width: "30px", textAlign: "center" }}>{item.qty}</span>
-                <button onClick={() => changeQty(item.id, item.qty + 1)} style={qtyBtn}>+</button>
-
-                <button
-                  onClick={() => removeItem(item.id)}
-                  style={{ marginLeft: "auto", color: "red", background: "none", border: "none", cursor: "pointer" }}
-                >
-                  {label.remove}
-                </button>
+          {/* ORDER SUCCESS MODAL (simple) */}
+          {orderSuccess && (
+            <div style={{ marginTop: 18, padding: 12, background: "#e6ffed", borderRadius: 8 }}>
+              <h3 style={{ margin: 0, color: "green" }}>Tilaus vastaanotettu ✔</h3>
+              <p style={{ margin: "6px 0" }}>Tilausnumero: <strong>{orderSuccess.orderId}</strong></p>
+              <p style={{ margin: "6px 0" }}>Summa: <strong>{orderSuccess.total.toFixed(2)} €</strong></p>
+              <div style={{ display: "flex", gap: 8 }}>
+                <button style={nextBtn} onClick={() => { setOrderSuccess(null); resetAll(); }}>Sulje</button>
               </div>
             </div>
-          ))}
-
-          {items.length > 0 && (
-            <>
-              <h3>{label.total}: {total.toFixed(2)} €</h3>
-
-              <button style={checkoutBtn} onClick={() => setCheckoutOpen(true)}>
-                {label.checkout}
-              </button>
-            </>
           )}
-        </>
-      )}
-    </div>
+
+        </div>
+      </aside>
+    </>
   );
 }
 
-/* === STYLES === */
+/* === STYLES (samantapaiset kuin ennen mutta lisätty muutama) === */
 
 const cartItem = {
   background: "#fafafa",
-  padding: "15px",
+  padding: "12px",
   borderRadius: "10px",
-  marginBottom: "15px",
-  border: "1px solid #ddd"
+  marginBottom: "12px",
+  border: "1px solid #eee"
 };
 
 const input = {
   width: "100%",
-  padding: "12px",
-  marginBottom: "10px",
-  borderRadius: "8px",
-  border: "1px solid #ccc",
-  fontSize: "16px",
+  padding: "10px 12px",
+  marginBottom: "8px",
+  borderRadius: "6px",
+  border: "1px solid #ddd",
+  fontSize: "15px",
   background: "white"
 };
 
 const qtyBtn = {
-  width: "30px",
-  height: "30px",
-  background: "#eee",
-  border: "1px solid #aaa",
+  width: "34px",
+  height: "34px",
+  background: "#f3f3f3",
+  border: "1px solid #ddd",
   borderRadius: "6px",
-  fontSize: "18px",
+  fontSize: "16px",
   cursor: "pointer"
 };
 
 const checkoutBtn = {
-  width: "100%",
+  flex: 1,
   background: "#00a300",
   color: "white",
-  padding: "16px",
-  marginTop: "20px",
+  padding: "12px",
   borderRadius: "8px",
-  fontSize: "18px",
+  border: "none",
   cursor: "pointer",
-  border: "none"
+  fontSize: "15px"
 };
 
 const nextBtn = {
-  width: "100%",
+  flex: 1,
   background: "#0066ff",
   color: "white",
-  padding: "12px",
+  padding: "10px",
   borderRadius: "8px",
-  marginTop: "10px",
-  cursor: "pointer",
   border: "none",
-  fontSize: "17px"
+  cursor: "pointer"
 };
 
 const backBtn = {
-  width: "100%",
+  flex: 1,
   background: "#777",
   color: "white",
-  padding: "12px",
+  padding: "10px",
   borderRadius: "8px",
-  marginTop: "10px",
-  cursor: "pointer",
   border: "none",
-  fontSize: "17px"
+  cursor: "pointer"
 };
 
 const confirmBtn = {
   width: "100%",
   background: "green",
   color: "white",
-  padding: "15px",
+  padding: "12px",
   borderRadius: "8px",
-  marginTop: "15px",
-  cursor: "pointer",
   border: "none",
-  fontSize: "18px"
+  cursor: "pointer",
+  fontSize: "15px"
 };
+
+const err = { color: "crimson", fontSize: 13, marginBottom: 8 };
