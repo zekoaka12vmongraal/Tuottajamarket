@@ -9,10 +9,19 @@ export default function Store() {
   const [search, setSearch] = useState("");
   const [category, setCategory] = useState(0);
 
+  // 🔥 OIKEA BACKEND-OSOITE RENDERISSÄ
+  const API_URL = import.meta.env.VITE_API_URL;
+
+console.log("Backend URL =", API_URL);
+
+
   // HAE TUOTTEET BACKENDILTÄ
   const loadProducts = async () => {
     try {
-      const res = await fetch("http://localhost:3001/api/products");
+      const res = await fetch(`${API_URL}/api/products`);
+      
+      if (!res.ok) throw new Error("Backend ei vastaa");
+
       const data = await res.json();
       setProducts(data);
     } catch (err) {
@@ -36,7 +45,6 @@ export default function Store() {
 
   return (
     <div style={{ padding: "20px", color: "white" }}>
-
       {/* LOGO + kielenvaihto + ostoskori */}
       <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "20px" }}>
         <h1 style={{ fontSize: "32px" }}>Tuottajamarket</h1>

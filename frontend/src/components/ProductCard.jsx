@@ -1,14 +1,22 @@
 import React from "react";
 
 export default function ProductCard({ p, onAdd }) {
-  // Tue molempia kenttiä: prize / price
-  const price = p.prize || p.price || 0;
+  // Tue sekä "prize" että "price" kenttiä
+  const price = Number(p.price || p.prize || 0).toFixed(2);
 
-  // Valitse lopullinen kuva
-  const imageSrc =
-    p.image && p.image.trim() !== ""
-      ? p.image
-      : "https://placehold.co/400x300?text=No+Image";
+  // Turvallinen kuvalogiikka
+  let imageSrc = p.image;
+
+  // Jos kuva puuttuu tai on tyhjä
+  if (!imageSrc || imageSrc.trim() === "") {
+    imageSrc = "https://placehold.co/400x300?text=No+Image";
+  }
+
+  // Jos kuva on pelkkä tiedostonimi (Supabase tapauksissa yleistä):
+  // lisää kuvaan backendin domain automaattisesti
+  if (!imageSrc.startsWith("http")) {
+    imageSrc = `${import.meta.env.VITE_API_URL}/img/${imageSrc}`;
+  }
 
   return (
     <div className="card">
@@ -16,6 +24,7 @@ export default function ProductCard({ p, onAdd }) {
         src={imageSrc}
         alt={p.name}
         onError={(e) => {
+          // Jos URL ei toimi
           e.target.src = "https://placehold.co/400x300?text=Error";
         }}
         className="product-image"
