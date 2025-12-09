@@ -1,30 +1,29 @@
-# Käytetään Node 18 -ympäristöä
-FROM node:18
+# Käytetään Node 20
+FROM node:20
 
-# Aseta työkansio
+# Työkansio
 WORKDIR /app
 
-# Kopioi backendin package-tiedostot
+# Kopioi backendin package.json
 COPY package*.json ./
 
 # Asenna backendin riippuvuudet
 RUN npm install
 
-# Kopioi frontend-kansio
+# Kopioi frontend
 COPY frontend ./frontend
 
-# Asenna frontendin riippuvuudet ja buildaa
+# Rakenna frontend
 RUN cd frontend && npm install && npm run build
 
-# Kopioi frontin build backendin dist-kansioon
-RUN mkdir -p dist
-RUN cp -r frontend/dist/* dist/
+# Kopioi frontend-build backendin dist-kansioon
+RUN mkdir -p dist && cp -r frontend/dist/* dist/
 
-# Kopioi loput projektista (data, services, server.js, jne.)
+# Kopioi loput tiedostot
 COPY . .
 
-# Altista portti (Render käyttää yleensä 10000 mutta tämä ei haittaa)
+# Avaa portti
 EXPOSE 3000
 
-# Käynnistä backend
+# Käynnistä palvelin
 CMD ["node", "server.js"]
